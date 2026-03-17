@@ -18,6 +18,7 @@ import {
   AddConnectionDialog,
   type Connection,
 } from "@/components/dashboard/add-connection-dialog";
+import { MarketSearch } from "@/components/dashboard/market-search";
 
 function maskApiKey(key: string): string {
   if (key.length <= 8) return "****";
@@ -65,6 +66,13 @@ export function AppSidebar() {
                   ))
                 )}
               </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Markets</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <MarketSearch />
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
