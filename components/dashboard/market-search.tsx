@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { mockTradingInstruments, type TradingInstrument } from "@/lib/mock-data";
+import { useSelectedInstrument } from "@/lib/selected-instrument-context";
 
 export function MarketSearch() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,6 +73,7 @@ export function MarketSearch() {
           filteredInstruments.map((instrument) => (
             <InstrumentItem key={instrument.id} instrument={instrument} />
           ))
+
         )}
       </div>
     </div>
@@ -80,13 +82,15 @@ export function MarketSearch() {
 
 function InstrumentItem({ instrument }: { instrument: TradingInstrument }) {
   const isPositive = instrument.change24h >= 0;
+  const { selectedInstrument, setSelectedInstrument } = useSelectedInstrument();
+  const isSelected = selectedInstrument?.id === instrument.id;
 
   return (
     <button
-      className="flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors text-left"
-      onClick={() => {
-        console.log("Selected instrument:", instrument.symbol);
-      }}
+      className={`flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors text-left ${
+        isSelected ? "bg-accent" : ""
+      }`}
+      onClick={() => setSelectedInstrument(instrument)}
     >
       <div className="flex flex-col gap-0.5 min-w-0 flex-1">
         <div className="font-medium text-sm truncate">{instrument.symbol}</div>

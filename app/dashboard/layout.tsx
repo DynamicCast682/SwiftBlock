@@ -1,6 +1,7 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { SelectedInstrumentProvider } from "@/lib/selected-instrument-context";
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+    <SelectedInstrumentProvider>
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
@@ -19,5 +21,6 @@ export default function DashboardLayout({
         <main className="flex-1 p-4">{children}</main>
       </SidebarInset>
     </SidebarProvider>
+    </SelectedInstrumentProvider>
   );
 }
