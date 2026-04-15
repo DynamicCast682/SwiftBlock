@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
@@ -14,6 +15,8 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import {
   AddConnectionDialog,
   type Connection,
@@ -28,6 +31,13 @@ function maskApiKey(key: string): string {
 export function AppSidebar() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await logout();
+    router.push("/login");
+  }
 
   function handleAddConnection(connection: Connection) {
     setConnections((prev) => [...prev, connection]);
@@ -76,6 +86,26 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
+
+        <SidebarFooter className="border-t px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium leading-none">
+                {user?.name}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {user?.email}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              title="Выйти"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </SidebarFooter>
       </Sidebar>
 
       <AddConnectionDialog
