@@ -98,10 +98,7 @@ function InstrumentItem({ instrument }: { instrument: TradingInstrument }) {
       </div>
       <div className="flex flex-col items-end gap-0.5 ml-2">
         <div className="text-sm font-medium">
-          {instrument.price.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          ${instrument.price.toFixed(2)}
         </div>
         <div
           className={`flex items-center gap-0.5 text-xs ${

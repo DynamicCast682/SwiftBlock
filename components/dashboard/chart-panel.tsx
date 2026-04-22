@@ -1,8 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { type TradingInstrument } from "@/lib/mock-data";
+import { PositionDialog } from "./position-dialog";
+import { PositionsList } from "./positions-list";
+
+interface Position {
+  id: string;
+  type: "LONG" | "SHORT";
+  instrument: string;
+  size: number;
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  currentPrice: number;
+  profitLoss: number;
+  profitLossPercent: number;
+  openTime: string;
+}
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000;
@@ -24,6 +40,7 @@ function generateMockPrices(basePrice: number, symbol: string, count = 60) {
 }
 
 export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
+  const [positions, setPositions] = useState<Position[]>([]);
   const prices = useMemo(
     () => generateMockPrices(instrument.price, instrument.symbol),
     [instrument.symbol, instrument.price]
@@ -60,17 +77,47 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
     const t = i / 4;
     return {
       y: pad.top + (1 - t) * ch,
-      value: (minVal + t * range).toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      }),
+      value: (minVal + t * range).toFixed(decimals),
     };
   });
 
   const gradientId = `fill-${instrument.id}`;
 
+  const handleOpenPosition = (newPosition: {
+    type: "LONG" | "SHORT";
+    size: number;
+    stopLoss: number;
+    takeProfit: number;
+    entryPrice?: number;
+  }) => {
+    const position: Position = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: newPosition.type,
+      instrument: instrument.symbol,
+      size: newPosition.size,
+      entryPrice: newPosition.entryPrice || instrument.price,
+      stopLoss: newPosition.stopLoss,
+      takeProfit: newPosition.takeProfit,
+      currentPrice: instrument.price,
+      profitLoss: 0,
+      profitLossPercent: 0,
+      openTime: new Date().toISOString(),
+    };
+
+    setPositions([...positions, position]);
+    console.log("Position opened:", position);
+  };
+
+  const handleClosePosition = (positionId: string) => {
+    const closedPosition = positions.find((p) => p.id === positionId);
+    if (closedPosition) {
+      console.log("Position closed:", closedPosition);
+    }
+    setPositions(positions.filter((p) => p.id !== positionId));
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold">{instrument.symbol}</h2>
@@ -78,10 +125,7 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="text-2xl font-bold tabular-nums">
-            {instrument.price.toLocaleString(undefined, {
-              minimumFractionDigits: decimals,
-              maximumFractionDigits: decimals,
-            })}
+            ${instrument.price.toFixed(decimals)}
           </div>
           <div
             className={`flex items-center gap-1 text-sm font-medium ${
@@ -160,6 +204,21 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
       <p className="text-xs text-muted-foreground text-center">
         Mock data — for display purposes only
       </p>
+
+      <div className="border-t pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Open Positions</h3>
+          <PositionDialog
+            instrument={instrument.symbol}
+            onOpenPosition={handleOpenPosition}
+          />
+        </div>
+        <PositionsList
+          positions={positions}
+          onClosePosition={handleClosePosition}
+          currentPrices={{ [instrument.symbol]: instrument.price }}
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogOut, Plus } from "lucide-react";
 import {
   Sidebar,
@@ -31,8 +31,13 @@ function maskApiKey(key: string): string {
 export function AppSidebar() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { user, logout } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function handleLogout() {
     await logout();
@@ -91,10 +96,10 @@ export function AppSidebar() {
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium leading-none">
-                {user?.name}
+                {mounted ? user?.name : "Loading..."}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {user?.email}
+                {mounted ? user?.email : ""}
               </p>
             </div>
             <button
