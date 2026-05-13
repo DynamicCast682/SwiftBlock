@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { type TradingInstrument } from "@/lib/mock-data";
 import { PositionDialog } from "./position-dialog";
@@ -41,6 +41,17 @@ function generateMockPrices(basePrice: number, symbol: string, count = 60) {
 
 export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
   const [positions, setPositions] = useState<Position[]>([]);
+  const [priceFlash, setPriceFlash] = useState<"up" | "down" | null>(null);
+  const prevPriceRef = useRef(instrument.price);
+
+  useEffect(() => {
+    if (instrument.price !== prevPriceRef.current) {
+      setPriceFlash(instrument.price > prevPriceRef.current ? "up" : "down");
+      prevPriceRef.current = instrument.price;
+      const t = setTimeout(() => setPriceFlash(null), 600);
+      return () => clearTimeout(t);
+    }
+  }, [instrument.price]);
   const prices = useMemo(
     () => generateMockPrices(instrument.price, instrument.symbol),
     [instrument.symbol, instrument.price]
@@ -82,6 +93,14 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
   });
 
   const gradientId = `fill-${instrument.id}`;
+  const totalPnL = positions.reduce((sum, p) => {
+    const currentPrice = instrument.price;
+    const priceDiff = p.type === "LONG"
+      ? currentPrice - p.entryPrice
+      : p.entryPrice - currentPrice;
+    return sum + priceDiff * p.size;
+  }, 0);
+  const instrumentBadge = instrument.type === "currency" ? "FX" : "Futures";
 
   const handleOpenPosition = (newPosition: {
     type: "LONG" | "SHORT";
@@ -120,11 +139,28 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{instrument.symbol}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold">{instrument.symbol}</h2>
+            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+              instrument.type === "currency"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-orange-100 text-orange-700"
+            }`}>
+              {instrumentBadge}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground">{instrument.name}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="text-2xl font-bold tabular-nums">
+          <div
+            className={`text-2xl font-bold tabular-nums transition-colors duration-300 ${
+              priceFlash === "up"
+                ? "text-green-500"
+                : priceFlash === "down"
+                ? "text-red-500"
+                : ""
+            }`}
+          >
             ${instrument.price.toFixed(decimals)}
           </div>
           <div
@@ -207,7 +243,16 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
 
       <div className="border-t pt-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Open Positions</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold">Open Positions</h3>
+            {positions.length > 0 && (
+              <span className={`text-sm font-bold tabular-nums ${
+                totalPnL >= 0 ? "text-green-600" : "text-red-600"
+              }`}>
+                {totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}
+              </span>
+            )}
+          </div>
           <PositionDialog
             instrument={instrument.symbol}
             onOpenPosition={handleOpenPosition}

@@ -2,9 +2,14 @@
 
 import { useSelectedInstrument } from "@/lib/selected-instrument-context";
 import { ChartPanel } from "./chart-panel";
+import { StatsPanel } from "./stats-panel";
 
 export function DashboardContent() {
-  const { selectedInstrument } = useSelectedInstrument();
+  const { selectedInstrument, activeView } = useSelectedInstrument();
+
+  if (activeView === "stats") {
+    return <StatsPanel />;
+  }
 
   if (!selectedInstrument) {
     return (

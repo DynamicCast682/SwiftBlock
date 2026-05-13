@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, BarChart2, LineChart } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +22,7 @@ import {
   type Connection,
 } from "@/components/dashboard/add-connection-dialog";
 import { MarketSearch } from "@/components/dashboard/market-search";
+import { useSelectedInstrument } from "@/lib/selected-instrument-context";
 
 function maskApiKey(key: string): string {
   if (key.length <= 8) return "****";
@@ -34,6 +35,7 @@ export function AppSidebar() {
   const [mounted, setMounted] = useState(false);
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { activeView, setActiveView } = useSelectedInstrument();
 
   useEffect(() => {
     setMounted(true);
@@ -51,8 +53,32 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar>
-        <SidebarHeader className="px-4 py-3 font-semibold text-lg">
-          SwiftBlock
+        <SidebarHeader className="px-4 py-3">
+          <div className="font-semibold text-lg mb-3">SwiftBlock</div>
+          <div className="flex gap-1 rounded-lg bg-muted p-1">
+            <button
+              onClick={() => setActiveView("chart")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                activeView === "chart"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LineChart className="h-3.5 w-3.5" />
+              Chart
+            </button>
+            <button
+              onClick={() => setActiveView("stats")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                activeView === "stats"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BarChart2 className="h-3.5 w-3.5" />
+              Statistics
+            </button>
+          </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
