@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const res = NextResponse.json({ id: user.id, name: user.name, email: user.email });
+  const res = NextResponse.json({ id: user.id, name: user.name, email: user.email, balances: user.balances ?? [] });
   res.cookies.set("swiftblock_session", user.id, {
     httpOnly: true,
     path: "/",

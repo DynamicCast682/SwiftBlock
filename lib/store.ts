@@ -1,8 +1,15 @@
+export interface AssetBalance {
+  symbol: string;
+  name: string;
+  amount: number;
+}
+
 export interface StoredUser {
   id: string;
   name: string;
   email: string;
   password: string;
+  balances: AssetBalance[];
 }
 
 declare global {

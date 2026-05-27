@@ -12,5 +12,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Пользователь не найден" }, { status: 401 });
   }
 
-  return NextResponse.json({ id: user.id, name: user.name, email: user.email });
+  return NextResponse.json({ id: user.id, name: user.name, email: user.email, balances: user.balances ?? [] });
 }

@@ -8,10 +8,17 @@ import {
   ReactNode,
 } from "react";
 
+export interface AssetBalance {
+  symbol: string;
+  name: string;
+  amount: number;
+}
+
 interface User {
   id: string;
   name: string;
   email: string;
+  balances: AssetBalance[];
 }
 
 interface AuthContextType {

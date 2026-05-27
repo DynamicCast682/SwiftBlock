@@ -22,10 +22,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const newUser = { id: Date.now().toString(), name, email, password };
+  const defaultBalances = [
+    { symbol: "SWFT", name: "SwiftBlock Token", amount: 500.0 },
+    { symbol: "BTC", name: "Bitcoin", amount: 0.05 },
+    { symbol: "ETH", name: "Ethereum", amount: 1.2 },
+    { symbol: "USDT", name: "Tether", amount: 1500.0 },
+    { symbol: "SOL", name: "Solana", amount: 25.5 },
+  ];
+
+  const newUser = { id: Date.now().toString(), name, email, password, balances: defaultBalances };
   users.push(newUser);
 
-  const res = NextResponse.json({ id: newUser.id, name, email });
+  const res = NextResponse.json({ id: newUser.id, name, email, balances: newUser.balances });
   res.cookies.set("swiftblock_session", newUser.id, {
     httpOnly: true,
     path: "/",
