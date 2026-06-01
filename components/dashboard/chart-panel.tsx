@@ -1,24 +1,16 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { type TradingInstrument } from "@/lib/mock-data";
 import { PositionDialog } from "./position-dialog";
 import { PositionsList } from "./positions-list";
-
-interface Position {
-  id: string;
-  type: "LONG" | "SHORT";
-  instrument: string;
-  size: number;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  currentPrice: number;
-  profitLoss: number;
-  profitLossPercent: number;
-  openTime: string;
-}
+import { OrderBook } from "./order-book";
+import { MarketTrades } from "./market-trades";
+import { usePrices } from "@/lib/prices-context";
+import { usePositions } from "@/hooks/usePositions";
+import { useAuth } from "@/lib/auth-context";
+import { toast } from "sonner";
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000;
@@ -39,26 +31,35 @@ function generateMockPrices(basePrice: number, symbol: string, count = 60) {
   return prices;
 }
 
-export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
-  const [positions, setPositions] = useState<Position[]>([]);
+export function ChartPanel({ instrument: initialInstrument }: { instrument: TradingInstrument }) {
+  const { prices } = usePrices();
+  const { user, refreshUser } = useAuth();
+  const { positions, openPosition, closePosition, fetchPositions, loading } = usePositions();
+  const currentPrice = prices[initialInstrument.symbol] || initialInstrument.price;
+  
   const [priceFlash, setPriceFlash] = useState<"up" | "down" | null>(null);
-  const prevPriceRef = useRef(instrument.price);
+  const prevPriceRef = useRef(currentPrice);
 
   useEffect(() => {
-    if (instrument.price !== prevPriceRef.current) {
-      setPriceFlash(instrument.price > prevPriceRef.current ? "up" : "down");
-      prevPriceRef.current = instrument.price;
+    fetchPositions();
+  }, [fetchPositions]);
+
+  useEffect(() => {
+    if (currentPrice !== prevPriceRef.current) {
+      setPriceFlash(currentPrice > prevPriceRef.current ? "up" : "down");
+      prevPriceRef.current = currentPrice;
       const t = setTimeout(() => setPriceFlash(null), 600);
       return () => clearTimeout(t);
     }
-  }, [instrument.price]);
-  const prices = useMemo(
-    () => generateMockPrices(instrument.price, instrument.symbol),
-    [instrument.symbol, instrument.price]
+  }, [currentPrice]);
+
+  const chartPrices = useMemo(
+    () => generateMockPrices(currentPrice, initialInstrument.symbol),
+    [initialInstrument.symbol, currentPrice]
   );
 
-  const minVal = Math.min(...prices) * 0.999;
-  const maxVal = Math.max(...prices) * 1.001;
+  const minVal = Math.min(...chartPrices) * 0.999;
+  const maxVal = Math.max(...chartPrices) * 1.001;
   const range = maxVal - minVal;
 
   const W = 600;
@@ -67,8 +68,8 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
   const cw = W - pad.left - pad.right;
   const ch = H - pad.top - pad.bottom;
 
-  const pts = prices.map((price, i) => ({
-    x: (i / (prices.length - 1)) * cw + pad.left,
+  const pts = chartPrices.map((price, i) => ({
+    x: (i / (chartPrices.length - 1)) * cw + pad.left,
     y: ((maxVal - price) / range) * ch + pad.top,
   }));
 
@@ -80,9 +81,9 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
     "Z",
   ].join(" ");
 
-  const isPositive = instrument.change24h >= 0;
+  const isPositive = initialInstrument.change24h >= 0;
   const color = isPositive ? "#16a34a" : "#dc2626";
-  const decimals = instrument.price < 10 ? 4 : 2;
+  const decimals = currentPrice < 10 ? 4 : 2;
 
   const yLabels = Array.from({ length: 5 }, (_, i) => {
     const t = i / 4;
@@ -92,64 +93,70 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
     };
   });
 
-  const gradientId = `fill-${instrument.id}`;
-  const totalPnL = positions.reduce((sum, p) => {
-    const currentPrice = instrument.price;
+  const gradientId = `fill-${initialInstrument.id}`;
+  
+  const instrumentPositions = positions.filter(p => p.instrument === initialInstrument.symbol);
+  
+  const totalPnL = instrumentPositions.reduce((sum, p) => {
     const priceDiff = p.type === "LONG"
       ? currentPrice - p.entryPrice
       : p.entryPrice - currentPrice;
     return sum + priceDiff * p.size;
   }, 0);
-  const instrumentBadge = instrument.type === "currency" ? "FX" : "Futures";
 
-  const handleOpenPosition = (newPosition: {
+  const instrumentBadge = initialInstrument.type === "currency" ? "FX" : "Futures";
+
+  const handleOpenPosition = async (newPos: {
     type: "LONG" | "SHORT";
+    orderType: "MARKET" | "LIMIT";
     size: number;
     stopLoss: number;
     takeProfit: number;
     entryPrice?: number;
   }) => {
-    const position: Position = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: newPosition.type,
-      instrument: instrument.symbol,
-      size: newPosition.size,
-      entryPrice: newPosition.entryPrice || instrument.price,
-      stopLoss: newPosition.stopLoss,
-      takeProfit: newPosition.takeProfit,
-      currentPrice: instrument.price,
-      profitLoss: 0,
-      profitLossPercent: 0,
-      openTime: new Date().toISOString(),
-    };
-
-    setPositions([...positions, position]);
-    console.log("Position opened:", position);
+    try {
+      await openPosition({
+        ...newPos,
+        instrument: initialInstrument.symbol,
+        entryPrice: newPos.entryPrice || currentPrice,
+        currentPrice: currentPrice,
+        profitLoss: 0,
+        profitLossPercent: 0,
+      });
+      await refreshUser();
+      toast.success(`Позиция ${newPos.type} по ${initialInstrument.symbol} открыта`);
+    } catch (err) {
+      toast.error("Не удалось открыть позицию");
+      console.error("Failed to open position:", err);
+    }
   };
 
-  const handleClosePosition = (positionId: string) => {
-    const closedPosition = positions.find((p) => p.id === positionId);
-    if (closedPosition) {
-      console.log("Position closed:", closedPosition);
+  const onHandleClosePosition = async (id: string) => {
+    try {
+      await closePosition(id);
+      await refreshUser();
+      toast.info("Позиция закрыта");
+    } catch (err) {
+      toast.error("Не удалось закрыть позицию");
     }
-    setPositions(positions.filter((p) => p.id !== positionId));
   };
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold">{instrument.symbol}</h2>
+            <h2 className="text-2xl font-bold">{initialInstrument.symbol}</h2>
             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-              instrument.type === "currency"
+              initialInstrument.type === "currency"
                 ? "bg-blue-100 text-blue-700"
                 : "bg-orange-100 text-orange-700"
             }`}>
               {instrumentBadge}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">{instrument.name}</p>
+          <p className="text-sm text-muted-foreground">{initialInstrument.name}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div
@@ -161,7 +168,7 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
                 : ""
             }`}
           >
-            ${instrument.price.toFixed(decimals)}
+            ${currentPrice.toFixed(decimals)}
           </div>
           <div
             className={`flex items-center gap-1 text-sm font-medium ${
@@ -174,95 +181,118 @@ export function ChartPanel({ instrument }: { instrument: TradingInstrument }) {
               <TrendingDown className="h-4 w-4" />
             )}
             {isPositive ? "+" : ""}
-            {instrument.change24h.toFixed(2)}%
+            {initialInstrument.change24h.toFixed(2)}%
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
-        <svg
-          width="100%"
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="xMidYMid meet"
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
+      {/* Main Content: Chart + Sidebar Tools */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Left Side: Chart (3/4 width) */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="rounded-lg border bg-card p-4 relative overflow-hidden">
+            <svg
+              width="100%"
+              viewBox={`0 0 ${W} ${H}`}
+              preserveAspectRatio="xMidYMid meet"
+              className="overflow-visible"
+            >
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+                  <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
 
-          {yLabels.map((label, i) => (
-            <g key={i}>
-              <line
-                x1={pad.left}
-                y1={label.y}
-                x2={pad.left + cw}
-                y2={label.y}
-                stroke="currentColor"
-                strokeOpacity="0.08"
-                strokeWidth="1"
+              {yLabels.map((label, i) => (
+                <g key={i}>
+                  <line
+                    x1={pad.left}
+                    y1={label.y}
+                    x2={pad.left + cw}
+                    y2={label.y}
+                    stroke="currentColor"
+                    strokeOpacity="0.08"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={pad.left - 6}
+                    y={label.y}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fill="currentColor"
+                    fillOpacity="0.5"
+                  >
+                    {label.value}
+                  </text>
+                </g>
+              ))}
+
+              <path d={fillD} fill={`url(#${gradientId})`} />
+
+              <polyline
+                points={polyline}
+                fill="none"
+                stroke={color}
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+                strokeLinecap="round"
               />
-              <text
-                x={pad.left - 6}
-                y={label.y}
-                textAnchor="end"
-                dominantBaseline="middle"
-                fontSize="10"
-                fill="currentColor"
-                fillOpacity="0.5"
-              >
-                {label.value}
-              </text>
-            </g>
-          ))}
 
-          <path d={fillD} fill={`url(#${gradientId})`} />
+              <circle
+                cx={pts[pts.length - 1].x}
+                cy={pts[pts.length - 1].y}
+                r="3.5"
+                fill={color}
+              />
+            </svg>
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            Real-time market activity simulation
+          </p>
+        </div>
 
-          <polyline
-            points={polyline}
-            fill="none"
-            stroke={color}
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-
-          <circle
-            cx={pts[pts.length - 1].x}
-            cy={pts[pts.length - 1].y}
-            r="3.5"
-            fill={color}
-          />
-        </svg>
+        {/* Right Side: Order Book (1/4 width) */}
+        <div className="lg:col-span-1 h-[280px]">
+          <OrderBook currentPrice={currentPrice} symbol={initialInstrument.symbol} />
+        </div>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center">
-        Mock data — for display purposes only
-      </p>
-
-      <div className="border-t pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">Open Positions</h3>
-            {positions.length > 0 && (
-              <span className={`text-sm font-bold tabular-nums ${
-                totalPnL >= 0 ? "text-green-600" : "text-red-600"
-              }`}>
-                {totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}
-              </span>
-            )}
-          </div>
-          <PositionDialog
-            instrument={instrument.symbol}
-            onOpenPosition={handleOpenPosition}
-          />
+      {/* Bottom Content: Market Trades + Positions */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 border-t pt-6">
+        <div className="lg:col-span-1 h-[400px]">
+          <MarketTrades currentPrice={currentPrice} symbol={initialInstrument.symbol} />
         </div>
-        <PositionsList
-          positions={positions}
-          onClosePosition={handleClosePosition}
-          currentPrices={{ [instrument.symbol]: instrument.price }}
-        />
+        
+        <div className="lg:col-span-3 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold">Open Positions</h3>
+              {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+              {instrumentPositions.length > 0 && (
+                <span className={`text-sm font-bold tabular-nums ${
+                  totalPnL >= 0 ? "text-green-600" : "text-red-600"
+                }`}>
+                  {totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}
+                </span>
+              )}
+            </div>
+            <PositionDialog
+              instrument={initialInstrument.symbol}
+              instrumentType={initialInstrument.type}
+              onOpenPosition={handleOpenPosition}
+            />
+
+          </div>
+          <div className="max-h-[350px] overflow-y-auto pr-2">
+            <PositionsList
+              positions={instrumentPositions}
+              onClosePosition={onHandleClosePosition}
+              currentPrices={prices}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

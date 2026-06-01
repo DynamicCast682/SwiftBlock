@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, X, Clock } from "lucide-react";
+import { type Position } from "@/hooks/usePositions";
 
 function useElapsedTime(openTime: string) {
   const [elapsed, setElapsed] = useState("");
@@ -20,20 +21,6 @@ function useElapsedTime(openTime: string) {
   }, [openTime]);
 
   return elapsed;
-}
-
-interface Position {
-  id: string;
-  type: "LONG" | "SHORT";
-  instrument: string;
-  size: number;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  currentPrice: number;
-  profitLoss: number;
-  profitLossPercent: number;
-  openTime: string;
 }
 
 interface PositionsListProps {
@@ -126,6 +113,9 @@ function PositionCard({
               }`}
             >
               {position.type}
+            </span>
+            <span className="px-2 py-1 text-[10px] font-bold rounded bg-gray-200 text-gray-700">
+              {position.orderType}
             </span>
             <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
               <Clock className="w-3 h-3" />

@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 
-interface Position {
+export interface Position {
   id: string;
   type: "LONG" | "SHORT";
+  orderType: "MARKET" | "LIMIT";
   instrument: string;
   size: number;
   entryPrice: number;

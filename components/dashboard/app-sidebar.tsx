@@ -23,6 +23,7 @@ import {
 } from "@/components/dashboard/add-connection-dialog";
 import { MarketSearch } from "@/components/dashboard/market-search";
 import { useSelectedInstrument } from "@/lib/selected-instrument-context";
+import { SwapDialog } from "@/components/dashboard/swap-dialog";
 import Link from "next/link";
 
 function maskApiKey(key: string): string {
@@ -104,6 +105,9 @@ export function AppSidebar() {
                       <span>Аккаунт</span>
                     </Link>
                   </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SwapDialog />
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>

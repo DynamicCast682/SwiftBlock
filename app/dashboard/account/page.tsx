@@ -1,18 +1,38 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { Wallet, User, Mail, Shield, ArrowUpRight, ArrowDownLeft, MoreHorizontal } from "lucide-react";
+import { Wallet, User, Mail, Shield, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const [isDepositing, setIsDepositing] = useState(false);
 
   if (!user) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Загрузка...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+
+  const handleDeposit = async () => {
+    setIsDepositing(true);
+    try {
+      const res = await fetch("/api/auth/deposit", { method: "POST" });
+      if (res.ok) {
+        await refreshUser();
+        toast.success("Тестовый баланс успешно пополнен!");
+      } else {
+        toast.error("Ошибка при пополнении баланса");
+      }
+    } catch (error) {
+      toast.error("Сетевая ошибка");
+    } finally {
+      setIsDepositing(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
@@ -24,8 +44,12 @@ export default function AccountPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-            <ArrowDownLeft className="h-4 w-4" />
+          <button 
+            onClick={handleDeposit}
+            disabled={isDepositing}
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {isDepositing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownLeft className="h-4 w-4" />}
             Пополнить
           </button>
           <button className="flex items-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">

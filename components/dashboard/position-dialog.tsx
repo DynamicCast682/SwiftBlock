@@ -13,11 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 interface PositionDialogProps {
   instrument: string;
+  instrumentType: 'currency' | 'futures';
   onOpenPosition: (position: {
     type: "LONG" | "SHORT";
+    orderType: "MARKET" | "LIMIT";
     size: number;
     stopLoss: number;
     takeProfit: number;
@@ -27,29 +31,42 @@ interface PositionDialogProps {
 
 export function PositionDialog({
   instrument,
+  instrumentType,
   onOpenPosition,
 }: PositionDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [positionType, setPositionType] = useState<"LONG" | "SHORT" | null>(
     null
   );
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
   const [size, setSize] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [entryPrice, setEntryPrice] = useState("");
 
+  const marginCurrency = instrumentType === 'futures' ? 'USDT' : instrument.split('/')[0];
+  const userBalance = user?.balances?.find(b => b.symbol === marginCurrency)?.amount || 0;
+
   const handleOpenPosition = () => {
-    if (!positionType || !size || !stopLoss || !takeProfit) {
-      alert("Please fill all required fields");
+    if (!positionType || !size || !stopLoss || !takeProfit || (orderType === "LIMIT" && !entryPrice)) {
+      toast.error("Пожалуйста, заполните все обязательные поля");
+      return;
+    }
+
+    const positionSize = parseFloat(size);
+    if (positionSize > userBalance) {
+      toast.error(`Недостаточно ${marginCurrency} на балансе (Доступно: ${userBalance})`);
       return;
     }
 
     const position = {
       type: positionType,
+      orderType: orderType,
       size: parseFloat(size),
       stopLoss: parseFloat(stopLoss),
       takeProfit: parseFloat(takeProfit),
-      entryPrice: entryPrice ? parseFloat(entryPrice) : undefined,
+      entryPrice: orderType === "LIMIT" ? parseFloat(entryPrice) : undefined,
     };
 
     onOpenPosition(position);
@@ -59,6 +76,7 @@ export function PositionDialog({
 
   const resetForm = () => {
     setPositionType(null);
+    setOrderType("MARKET");
     setSize("");
     setStopLoss("");
     setTakeProfit("");
@@ -116,6 +134,32 @@ export function PositionDialog({
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label>Order Type</Label>
+              <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                <button
+                  onClick={() => setOrderType("MARKET")}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    orderType === "MARKET"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Market
+                </button>
+                <button
+                  onClick={() => setOrderType("LIMIT")}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    orderType === "LIMIT"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Limit
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="size">Position Size *</Label>
               <Input
                 id="size"
@@ -128,11 +172,14 @@ export function PositionDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="entry">Entry Price (Optional)</Label>
+              <Label htmlFor="entry">
+                {orderType === "MARKET" ? "Market Price (Est.)" : "Limit Price *"}
+              </Label>
               <Input
                 id="entry"
                 type="number"
-                placeholder="Current market price will be used"
+                disabled={orderType === "MARKET"}
+                placeholder={orderType === "MARKET" ? "Current market price will be used" : "Enter entry price"}
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
                 step="0.01"
@@ -165,8 +212,8 @@ export function PositionDialog({
               </div>
             </div>
 
-            <div className="bg-gray-100 p-3 rounded text-sm">
-              <p>
+            <div className="bg-gray-100 p-3 rounded text-sm space-y-1">
+              <p className="flex justify-between">
                 <strong>Position Type:</strong>{" "}
                 <span
                   className={
@@ -178,9 +225,16 @@ export function PositionDialog({
                   {positionType}
                 </span>
               </p>
+              <p className="flex justify-between text-xs text-muted-foreground">
+                <span>Available Balance:</span>
+                <span>{userBalance.toFixed(marginCurrency === 'USDT' ? 2 : 6)} {marginCurrency}</span>
+              </p>
               {size && (
-                <p>
-                  <strong>Size:</strong> {size}
+                <p className="flex justify-between border-t mt-1 pt-1">
+                  <strong>Total Size:</strong> 
+                  <span className={parseFloat(size) > userBalance ? "text-red-600 font-bold" : ""}>
+                    {size} {marginCurrency}
+                  </span>
                 </p>
               )}
             </div>

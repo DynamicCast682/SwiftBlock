@@ -10,15 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockTradingInstruments, type TradingInstrument } from "@/lib/mock-data";
 import { useSelectedInstrument } from "@/lib/selected-instrument-context";
+import { usePrices } from "@/lib/prices-context";
+import { type TradingInstrument } from "@/lib/mock-data";
 
 export function MarketSearch() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "currency" | "futures">("all");
+  const { instruments } = usePrices();
 
   const filteredInstruments = useMemo(() => {
-    let results = mockTradingInstruments;
+    let results = instruments;
 
     if (filterType !== "all") {
       results = results.filter((inst) => inst.type === filterType);
